@@ -243,6 +243,12 @@ example `'fm3 0001'`.
 -	`pcmrate <1..8>` - Change the PCM pitch. The sample rate can be set in
 	~2.2 kHz steps. This value is temporary and lasts until the next instrument
 	change.
+-	`rndpat *<sub1> *<sub2> [*<sub3> ...]` - Random pattern selection. Each time
+	this command is executed, one of the specified subroutines is randomly
+	chosen and called. This enables variable/dynamic music where different
+	patterns can play each time a section loops. Requires 2-8 subroutine
+	references. Example: `'rndpat *100 *101 *102'` will randomly call one of
+	subroutines 100, 101, or 102.
 -	`write <register> <data>` - Write bytes directly to FM registers. Instead of
 	specifying the register directly, the following aliases can also be used:
 	`dtml*`, `ksar*`, `amdr*`, `sr*`, `slrr*`, `ssg*`, `fbal`, where `*`

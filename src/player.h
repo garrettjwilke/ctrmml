@@ -175,6 +175,7 @@ class Player : public Basic_Player
 		void set_update_flag(Event::Type type);
 		void clear_update_flag(Event::Type type);
 		int16_t get_last_note() const;
+		void call_subroutine(int track_id);
 		virtual uint32_t parse_platform_event(const Tag& tag, int16_t* platform_state);
 		virtual void write_event();
 

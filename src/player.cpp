@@ -684,6 +684,24 @@ uint32_t Player::parse_platform_event(const Tag& tag, int16_t* platform_state)
 	return 0;
 }
 
+//! Call a subroutine from within platform event handling
+void Player::call_subroutine(int track_id)
+{
+	try
+	{
+		Track& new_track = song->get_track(track_id);
+		// Push old position
+		stack_push({Player_Stack::JUMP, track, position, 0, 0});
+		// Set new position
+		track = &new_track;
+		position = 0;
+	}
+	catch(std::exception& ex)
+	{
+		error("call_subroutine: destination doesn't exist");
+	}
+}
+
 
 //! Custom platform update
 /*!

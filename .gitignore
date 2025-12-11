@@ -5,3 +5,6 @@ doxygen
 *.vgm
 *.mds
 ctrmml
+mdslink
+mdslink-rng
+mmlc

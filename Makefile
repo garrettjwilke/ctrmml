@@ -82,7 +82,7 @@ $(OBJ)/%.o: $(SRC)/%.cpp
 sample/%.vgm: sample/%.mml mmlc
 	./mmlc $<
 
-all: mmlc mdslink test
+all: mmlc mdslink-rng test
 
 lib: $(LIBCTRMML)
 
@@ -93,7 +93,7 @@ $(LIBCTRMML): $(CORE_OBJS)
 mmlc: $(MMLC_OBJS)
 	$(CXX) $(MMLC_OBJS) $(LDFLAGS) -o $@
 
-mdslink: $(MDSLINK_OBJS)
+mdslink-rng: $(MDSLINK_OBJS)
 	$(CXX) $(MDSLINK_OBJS) $(LDFLAGS) -o $@
 
 unittest: $(UNITTEST_OBJS)

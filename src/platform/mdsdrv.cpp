@@ -852,6 +852,23 @@ void MDSDRV_Track_Writer::parse_platform_event(const Tag& tag)
 			error("pcmmode argument must be between 2 and 3");
 		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::PCMMODE, data));
 	}
+	else if (iequal(tag[0], "comm"))
+	{
+		if (tag.size() < 2)
+			error("not enough parameters for 'comm' command");
+
+		char* endptr;
+		long value = std::strtol(tag[1].c_str(), &endptr, 0);
+
+		if (*endptr != '\0')
+			error(("invalid number for 'comm' command: " + tag[1]).c_str());
+
+		if (value < 0 || value > 63)
+			error(("'comm' value out of range (must be 0–63): " + tag[1]).c_str());
+
+		uint8_t data = (uint8_t)value;
+		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::COMM, data));
+	}
 	else if(iequal(tag[0], "cmd")) // Direct command
 	{
 		if(tag.size() < 2)
@@ -865,6 +882,37 @@ void MDSDRV_Track_Writer::parse_platform_event(const Tag& tag)
 	else if(iequal(tag[0], "carry"))
 	{
 		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::CARRY, 0));
+	}
+	else if(iequal(tag[0], "rndpat"))
+	{
+		// Random pattern selection: 'rndpat *100 *101 *102 ...'
+		// Picks one of the specified subroutines randomly each time
+		if(tag.size() < 3)
+			error("'rndpat' requires at least 2 subroutine references");
+		if(tag.size() > 9)
+			error("'rndpat' supports at most 8 subroutine references");
+
+		// First, store the RNDPAT command with count
+		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::RNDPAT, tag.size() - 1));
+
+		// Then store each subroutine reference
+		for(size_t i = 1; i < tag.size(); i++)
+		{
+			const char* s = tag[i].c_str();
+			if(*s != '*')
+				error(stringf("'rndpat' argument must be a subroutine reference (*N), got '%s'", s).c_str());
+			int sub_id = std::strtol(s + 1, nullptr, 10);
+			try
+			{
+				int mapped_sub = mdsdrv.get_subroutine(sub_id, 0, drum_mode_enabled);
+				// Use a special marker (0x8000) to indicate this is part of rndpat
+				converted_events.push_back(MDSDRV_Event(MDSDRV_Event::RNDPAT, mapped_sub | 0x8000));
+			}
+			catch (std::out_of_range &)
+			{
+				error(stringf("MDSDRV: Subroutine *%d doesn't exist", sub_id).c_str());
+			}
+		}
 	}
 	else if(MDSDRV_get_register(tag[0]))
 	{
@@ -1199,6 +1247,21 @@ std::vector<uint8_t> MDSDRV_Converter::convert_track(const std::vector<MDSDRV_Ev
 					track_data.push_back(arg);
 					last_rest = 0xffff;
 					last_note = 0xffff;
+					break;
+				case MDSDRV_Event::RNDPAT: // random pattern selection
+					if(arg & 0x8000)
+					{
+						// This is a subroutine index within rndpat, just output the index byte
+						track_data.push_back(arg & 0xff);
+					}
+					else
+					{
+						// This is the start of rndpat command, output command + count
+						track_data.push_back(type);
+						track_data.push_back(arg & 0xff);
+						last_rest = 0xffff;
+						last_note = 0xffff;
+					}
 					break;
 				case MDSDRV_Event::LP: // loop start
 					track_data.push_back(type);

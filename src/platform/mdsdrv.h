@@ -23,7 +23,7 @@ class MDSDRV_Platform;
 
 // Current sequence version
 #define MDSDRV_SEQ_VERSION_MAJOR 0
-#define MDSDRV_SEQ_VERSION_MINOR 6
+#define MDSDRV_SEQ_VERSION_MINOR 7
 
 // Minimum compatible sequence version
 #define MDSDRV_MIN_SEQ_VERSION_MAJOR 0
@@ -130,6 +130,7 @@ struct MDSDRV_Event
 		PCM,		// PCM instrument
 		PCMRATE,	// PCM rate
 		PCMMODE,	// PCM mixing mode
+		RNDPAT,		// random pattern selection
 		JUMP = 0xf5, // jump
 		FMREG,		// global FM register write
 		DMFINISH,	// drum mode subroutine: play note and exit

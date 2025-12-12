@@ -205,6 +205,24 @@ uint32_t MD_Channel::parse_platform_event(const Tag& tag, int16_t* platform_stat
 		platform_state[EVENT_FM3] = (std::strtol(tag[1].c_str(), 0, 2) ^ 0x0f) & 0x0f;
 		return (1 << EVENT_FM3);
 	}
+	else if(iequal(tag[0], "rndpat"))
+	{
+		// Random pattern selection for playback
+		// Pick a random subroutine from the list and call it
+		if(tag.size() < 3)
+			error("'rndpat' requires at least 2 subroutine references");
+		// Pick random index
+		int count = tag.size() - 1;
+		int idx = std::rand() % count;
+		const char* s = tag[1 + idx].c_str();
+		if(*s == '*')
+		{
+			int sub_id = std::strtol(s + 1, nullptr, 10);
+			// Call the randomly selected subroutine
+			call_subroutine(sub_id);
+		}
+		return 0;
+	}
 	else if(iequal(tag[0], "write"))
 	{
 		if(tag.size() < 3)

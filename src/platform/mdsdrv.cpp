@@ -852,7 +852,7 @@ void MDSDRV_Track_Writer::parse_platform_event(const Tag& tag)
 			error("pcmmode argument must be between 2 and 3");
 		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::PCMMODE, data));
 	}
-	else if (iequal(tag[0], "comm")) // Communication byte
+	else if (iequal(tag[0], "comm"))
 	{
 		if (tag.size() < 2)
 			error("not enough parameters for 'comm' command");
@@ -860,19 +860,15 @@ void MDSDRV_Track_Writer::parse_platform_event(const Tag& tag)
 		char* endptr;
 		long value = std::strtol(tag[1].c_str(), &endptr, 0);
 
-		// Check for parse errors
 		if (*endptr != '\0')
-			error("invalid number for 'comm' command: " + tag[1]);
+			error(("invalid number for 'comm' command: " + tag[1]).c_str());
 
-		// Check range
 		if (value < 0 || value > 63)
-			error("'comm' value out of range (must be 0–63): " + tag[1]);
+			error(("'comm' value out of range (must be 0–63): " + tag[1]).c_str());
 
-		uint8_t data = static_cast<uint8_t>(value);
-
+		uint8_t data = (uint8_t)value;
 		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::COMM, data));
 	}
-
 	else if(iequal(tag[0], "cmd")) // Direct command
 	{
 		if(tag.size() < 2)

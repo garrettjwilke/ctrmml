@@ -863,8 +863,8 @@ void MDSDRV_Track_Writer::parse_platform_event(const Tag& tag)
 		if (*endptr != '\0')
 			error(("invalid number for 'comm' command: " + tag[1]).c_str());
 
-		if (value < 0 || value > 63)
-			error(("'comm' value out of range (must be 0–63): " + tag[1]).c_str());
+		if (value < 0 || value > 255)
+			error(("'comm' value out of range (must be 0–255): " + tag[1]).c_str());
 
 		uint8_t data = (uint8_t)value;
 		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::COMM, data));

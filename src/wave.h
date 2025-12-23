@@ -58,6 +58,13 @@ class Wave_Bank
 			int32_t transpose;
 			uint32_t flags;
 
+			// SSDPCM fields
+			bool is_ssdpcm;
+			uint8_t ssdpcm_mode;
+			uint16_t ssdpcm_block_len;
+			uint8_t ssdpcm_init_sample;
+			uint16_t ssdpcm_total_blocks;
+
 			// aggregate type - no constructor
 			void from_bytes(std::vector<uint8_t> input);
 			std::vector<uint8_t> to_bytes() const;

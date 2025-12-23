@@ -1662,8 +1662,39 @@ std::vector<uint8_t> MDSDRV_Linker::get_pcm_header(const Wave_Bank::Sample& samp
 		cp = 1;
 	else if(cp > 8)
 		cp = 8;
-	write_be32(output, 0, (sample.position + sample.start) | (cp << 24));
-	write_be32(output, 4, sample.size);
+	
+	if (sample.is_ssdpcm)
+	{
+		// SSDPCM Extended Header (20 bytes)
+		// 00: Mode | 0x80
+		// 01: 00
+		// 02: Block Length (2 bytes)
+		// 04: Total Blocks (2 bytes)
+		// 06: Init Sample
+		// 07: 00
+		// 08: 00 00
+		// 0A: Size (2 bytes)
+		// 0C: Standard Header Word 0 (Pitch/Bank/Addr)
+		// 10: Standard Header Word 1 (Size)
+		
+		output.push_back(sample.ssdpcm_mode | 0x80);
+		output.push_back(0);
+		write_be16(output, 2, sample.ssdpcm_block_len);
+		write_be16(output, 4, sample.ssdpcm_total_blocks);
+		output.push_back(sample.ssdpcm_init_sample);
+		output.push_back(0);
+		output.push_back(0);
+		output.push_back(0);
+		write_be16(output, 10, sample.size);
+		write_be32(output, 12, (sample.position + sample.start) | (cp << 24));
+		write_be32(output, 16, sample.size);
+	}
+	else
+	{
+		// Standard PCM Header (8 bytes)
+		write_be32(output, 0, (sample.position + sample.start) | (cp << 24));
+		write_be32(output, 4, sample.size);
+	}
 	return output;
 }
 

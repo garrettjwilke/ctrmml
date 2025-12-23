@@ -217,6 +217,7 @@ void Wave_Bank::set_include_paths(const Tag& tag)
 unsigned int Wave_Bank::add_sample(const Tag& tag)
 {
 	int status = -1;
+	Wave_Bank::Sample header;
 	if(!tag.size())
 	{
 		error_message = "Incomplete sample definition";
@@ -238,21 +239,10 @@ unsigned int Wave_Bank::add_sample(const Tag& tag)
 		throw InputError(nullptr, error_message.c_str());
 	}
 
-	// convert sample
-	std::vector<uint8_t> sample = encode_sample("", wf.data[0]);
-	Wave_Bank::Sample header = {
-		0,
-		0,
-		wf.slength,
-		wf.lstart,
-		wf.lend,
-		wf.srate,
-		wf.transpose,
-		0};
-
 	// Allow overriding the sample rate and setting start offset
 	int i = 1;
 	uint32_t param;
+	std::string format = "";
 	while(tag.size() > i)
 	{
 		if(std::sscanf(tag[i].c_str(), "rate = %u", &param) == 1)
@@ -266,7 +256,117 @@ unsigned int Wave_Bank::add_sample(const Tag& tag)
 			header.start += param;
 			header.size -= param;
 		}
+		else if(tag[i].find("format=") == 0)
+		{
+			format = tag[i].substr(7);
+		}
 		i++;
+	}
+
+	// convert sample
+	std::vector<uint8_t> sample;
+	if(format == "ssdpcm" || format == "ssd")
+	{
+		header.is_ssdpcm = true;
+		header.ssdpcm_mode = 0; // ss2
+		header.ssdpcm_block_len = 32; // Default block length
+		
+		// Encode to SSDPCM
+		// Simple SS2 encoder (2-bit)
+		// Based on the logic in mdsdrv-with-ssdpcm.md
+		const std::vector<int16_t>& input = wf.data[0];
+		int16_t current_val = 0;
+		if(input.size() > 0) current_val = input[0];
+		header.ssdpcm_init_sample = (current_val >> 8) + 128; // Unsigned 8-bit
+		
+		// Slope table for SS2 (2-bit)
+		// -1, 1, -2, 2? No, planning file says:
+		// 00: -1 small
+		// 01: +1 small
+		// 10: -4 large
+		// 11: +4 large
+		// Let's use a reasonable table for testing: -2, +2, -16, +16?
+		// Or use the one from Z80 code?
+		// Z80 code loads slopes from the stream.
+		// Wait! The SSDPCM format includes the slope table in the block header?
+		// "Block structure: [Slope Table (4 bytes)] [Data (8 bytes = 32 samples)]"
+		// Yes!
+		// So the encoder must choose slopes for each block.
+		
+		// For now, I'll use a fixed slope table for all blocks to simplify.
+		int8_t slopes[4] = {-2, 2, -16, 16};
+		
+		// Initial Slope Table (for Block 0)
+		sample.push_back(slopes[0]);
+		sample.push_back(slopes[1]);
+		sample.push_back(slopes[2]);
+		sample.push_back(slopes[3]);
+		
+		size_t pos = 0;
+		int accumulator = header.ssdpcm_init_sample;
+		
+		while(pos < input.size())
+		{
+			// Block N Data
+			std::vector<uint8_t> block_data;
+			
+			// Process 32 samples (8 bytes)
+			for(int b=0; b<8; b++) // 8 bytes = 32 samples
+			{
+				uint8_t byte = 0;
+				for(int s=0; s<4; s++) // 4 samples per byte
+				{
+					if(pos >= input.size()) break;
+					
+					int16_t target = (input[pos] >> 8) + 128;
+					int best_diff = 9999;
+					int best_idx = 0;
+					
+					// Find best slope
+					for(int k=0; k<4; k++)
+					{
+						int next = accumulator + slopes[k];
+						int diff = abs(target - next);
+						if(diff < best_diff)
+						{
+							best_diff = diff;
+							best_idx = k;
+						}
+					}
+					
+					accumulator += slopes[best_idx];
+					accumulator &= 0xFF; // Simulate Z80 wrap-around
+					
+					byte |= (best_idx << (s*2));
+					pos++;
+				}
+				block_data.push_back(byte);
+			}
+
+			// Pad block data if incomplete
+			while(block_data.size() < 8) block_data.push_back(0);
+			
+			// Determine Next Block Slopes (Slope N+1)
+			// For now, fixed.
+			int8_t next_slopes[4];
+			memcpy(next_slopes, slopes, 4);
+			
+			// Interleave Output: Data, Data, Slope, ...
+			// 4 Chunks: 2 Data bytes + 1 Slope byte
+			for(int i=0; i<4; i++)
+			{
+				sample.push_back(block_data[i*2]);
+				sample.push_back(block_data[i*2+1]);
+				sample.push_back(next_slopes[i]);
+			}
+			
+			header.ssdpcm_total_blocks++;
+		}
+		header.size = sample.size(); // Size in bytes
+	}
+	else
+	{
+		sample = encode_sample("", wf.data[0]);
 	}
 
 	return add_sample(header, sample);
@@ -498,6 +598,17 @@ void Wave_Bank::Sample::from_bytes(std::vector<uint8_t> input)
 	rate = read_le32(input, 20);
 	transpose = read_le32(input, 24);
 	flags = read_le32(input, 28);
+	
+	// Check if we have extended header data (assumed 16 bytes extra for SSDPCM)
+	if (input.size() >= 48) {
+		is_ssdpcm = true;
+		ssdpcm_mode = input[32];
+		ssdpcm_block_len = read_le16(input, 33);
+		ssdpcm_init_sample = input[35];
+		ssdpcm_total_blocks = read_le16(input, 36);
+	} else {
+		is_ssdpcm = false;
+	}
 }
 
 //! Return a sample header as a byte vector.
@@ -514,6 +625,42 @@ std::vector<uint8_t> Wave_Bank::Sample::to_bytes() const
 	write_le32(output, 16, loop_end);
 	write_le32(output, 20, rate);
 	write_le32(output, 24, transpose);
-	write_le32(output, 28, flags); // Reserved.
+	
+	// Use flags to indicate SSDPCM? Or just append?
+	// The 68k driver reads 32 bytes currently.
+	// We need to extend this.
+	// But `flags` is at offset 28 (4 bytes).
+	// If we repurpose flags or just append...
+	// The planning doc says:
+	// "16-byte SSDPCM Header (appended to standard header? or replacing parts?)"
+	// "Standard PCM header is 32 bytes."
+	// "Let's extend it to 48 bytes or use the flags field."
+	
+	// Let's use bit 31 of flags to indicate extended header if needed,
+	// but the Z80 code checks specific offsets.
+	// Actually, the 68k driver `mdsdrv.68k` reads the header.
+	// I need to update `mdsdrv.68k` to read the extended header if bit 7 of format is set?
+	// Wait, the Z80 `mdssub.z80` checks `zp_format` (bit 7).
+	// `zp_format` comes from the header?
+	// In `mdsdrv.68k`, `mds_pcm_key_on` reads the header.
+	
+	uint32_t current_flags = flags;
+	if (is_ssdpcm) {
+		current_flags |= 0x80000000; // Set a flag just in case
+	}
+	write_le32(output, 28, current_flags);
+
+	if (is_ssdpcm) {
+		// Append SSDPCM specific data (16 bytes to align/pad?)
+		// Offset 32
+		output.push_back(ssdpcm_mode); 		// +0: Mode
+		write_le16(output, 33, ssdpcm_block_len); // +1: Block length
+		output.push_back(ssdpcm_init_sample); 	// +3: Init sample
+		write_le16(output, 36, ssdpcm_total_blocks); // +4: Total blocks
+		
+		// Pad to 48 bytes (32 + 16)
+		while(output.size() < 48) output.push_back(0);
+	}
+
 	return output;
 }

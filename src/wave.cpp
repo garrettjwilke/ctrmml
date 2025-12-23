@@ -225,18 +225,81 @@ unsigned int Wave_Bank::add_sample(const Tag& tag)
 	}
 	std::string filename = tag[0];
 	Wave_File wf;
-	for(auto&& i : include_paths)
+	std::vector<uint8_t> sample_raw;
+	bool is_aud = false;
 	{
-		std::string fn = i + filename;
-		//std::cout << "attempt to load " << fn << "\n";
-		status = wf.read(fn);
-		if(status == 0)
-			break;
+		size_t dot = filename.find_last_of('.');
+		if(dot != std::string::npos)
+		{
+			std::string ext = filename.substr(dot+1);
+			for(auto &c : ext) c = std::tolower(c);
+			is_aud = (ext == "aud");
+		}
 	}
-	if(status)
+	if(is_aud)
 	{
-		error_message = filename + " not found";
-		throw InputError(nullptr, error_message.c_str());
+		for(auto&& i : include_paths)
+		{
+			std::string fn = i + filename;
+			std::ifstream is{fn, std::ios::binary|std::ios::ate};
+			if(is)
+			{
+				auto size = is.tellg();
+				sample_raw.resize(size);
+				is.seekg(0);
+				if(is.read(reinterpret_cast<char*>(sample_raw.data()), size))
+				{
+					status = 0;
+					break;
+				}
+			}
+		}
+		if(status)
+		{
+			error_message = filename + " not found";
+			throw InputError(nullptr, error_message.c_str());
+		}
+		// Minimal header defaults for SSDPCM
+		header.is_ssdpcm = true;
+		header.ssdpcm_mode = 0;
+		header.ssdpcm_block_len = 32;
+		header.ssdpcm_init_sample = 0;
+		header.ssdpcm_total_blocks = 0;
+		header.start = 0;
+		header.size = sample_raw.size();
+		header.loop_start = 0;
+		header.loop_end = 0;
+		header.rate = 17500;
+		header.transpose = 0;
+		header.flags = 0;
+	}
+	else
+	{
+		for(auto&& i : include_paths)
+		{
+			std::string fn = i + filename;
+			status = wf.read(fn);
+			if(status == 0)
+				break;
+		}
+		if(status)
+		{
+			error_message = filename + " not found";
+			throw InputError(nullptr, error_message.c_str());
+		}
+		// Initialize header from Wave_File
+		header.is_ssdpcm = false;
+		header.ssdpcm_mode = 0;
+		header.ssdpcm_block_len = 0;
+		header.ssdpcm_init_sample = 0;
+		header.ssdpcm_total_blocks = 0;
+		header.start = 0;
+		header.size = wf.slength;
+		header.loop_start = wf.lstart;
+		header.loop_end = wf.lend;
+		header.rate = wf.srate ? wf.srate : 17500;
+		header.transpose = wf.transpose;
+		header.flags = 0;
 	}
 
 	// Allow overriding the sample rate and setting start offset
@@ -265,7 +328,11 @@ unsigned int Wave_Bank::add_sample(const Tag& tag)
 
 	// convert sample
 	std::vector<uint8_t> sample;
-	if(format == "ssdpcm" || format == "ssd")
+	if(is_aud)
+	{
+		sample = sample_raw;
+	}
+	else if(format == "ssdpcm" || format == "ssd")
 	{
 		header.is_ssdpcm = true;
 		header.ssdpcm_mode = 0; // ss2

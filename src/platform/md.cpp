@@ -1182,7 +1182,7 @@ double MD_PCMDriver::set_mode(int data)
 		mode = 0;
 
 	if(data == 2)
-		return 20000.0;  // Updated for optimized driver (was 17500.0)
+		return 22000.0;  // Updated for optimized driver (was 17500.0)
 	else if(data == 3)
 		return 13000.0;
 	else

@@ -640,7 +640,11 @@ void MD_Channel::key_on_pcm()
 			driver->ym2612_w(0, 0x2b, 0, 0, 0x80); // DAC enable
 			if(driver->vgm)
 			{
-				driver->vgm->dac_start(0x00, sample.position + sample.start, sample.size, sample.rate);
+				// Scale sample rate DOWN to compensate for playback speed issue
+				// WAV files may have been created with old 17500 Hz base in mind
+				// Scale down by old_rate/new_rate to correct playback speed
+				uint32_t scaled_rate = (uint32_t)(sample.rate * (17500.0 / (double)MDSDRV_PCM_RATE) + 0.5);
+				driver->vgm->dac_start(0x00, sample.position + sample.start, sample.size, scaled_rate);
 			}
 		}
 	}

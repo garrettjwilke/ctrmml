@@ -640,14 +640,11 @@ void MD_Channel::key_on_pcm()
 			driver->ym2612_w(0, 0x2b, 0, 0, 0x80); // DAC enable
 			if(driver->vgm)
 			{
-				// For mmlgui: calculate the effective playback rate from pitch calculation
-				// This matches what Genesis actually plays, since Genesis uses pitch calculation
+				// For mmlgui playback: scale rates to compensate for MDSDRV_PCM_RATE change
+				// When MDSDRV_PCM_RATE was 17500, mmlgui worked correctly
+				// Now that it's 22000, mmlgui plays too fast, so scale by old/new
 				const uint32_t OLD_PCM_RATE = 17500;
-				double base_rate = (sample.rate == MDSDRV_PCM_RATE) ? (double)MDSDRV_PCM_RATE : (double)OLD_PCM_RATE;
-				float pitch = sample.rate / (base_rate / 8.0);
-				// Effective playback rate = base_rate * (pitch / 8.0)
-				// This gives the actual sample rate that Genesis uses for playback
-				uint32_t playback_rate = (uint32_t)(base_rate * (pitch / 8.0) + 0.5);
+				uint32_t playback_rate = (uint32_t)(sample.rate * ((double)OLD_PCM_RATE / (double)MDSDRV_PCM_RATE) + 0.5);
 				driver->vgm->dac_start(0x00, sample.position + sample.start, sample.size, playback_rate);
 			}
 		}

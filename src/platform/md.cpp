@@ -640,14 +640,12 @@ void MD_Channel::key_on_pcm()
 			driver->ym2612_w(0, 0x2b, 0, 0, 0x80); // DAC enable
 			if(driver->vgm)
 			{
-				// For mmlgui playback: only scale when rate is explicitly set (e.g., rate=22000)
-				// When rate comes from WAV file, use it directly (no scaling needed)
-				uint32_t playback_rate = sample.rate;
-				if(sample.rate == MDSDRV_PCM_RATE)
-				{
-					// Rate was explicitly set to match driver base, scale to actual playback rate
-					playback_rate = (uint32_t)(sample.rate * (17500.0 / (double)MDSDRV_PCM_RATE) + 0.5);
-				}
+				// For mmlgui playback: always scale rates to match actual playback speed
+				// The driver's pitch calculation uses different bases (17500 for WAV files, 22000 for explicit rate=)
+				// but mmlgui needs consistent scaling to match Genesis playback speed
+				// Scale all rates by old_base/new_base to convert from driver's interpretation
+				const uint32_t OLD_PCM_RATE = 17500;
+				uint32_t playback_rate = (uint32_t)(sample.rate * ((double)OLD_PCM_RATE / (double)MDSDRV_PCM_RATE) + 0.5);
 				driver->vgm->dac_start(0x00, sample.position + sample.start, sample.size, playback_rate);
 			}
 		}

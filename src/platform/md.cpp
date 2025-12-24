@@ -640,13 +640,21 @@ void MD_Channel::key_on_pcm()
 			driver->ym2612_w(0, 0x2b, 0, 0, 0x80); // DAC enable
 			if(driver->vgm)
 			{
-				// For mmlgui playback: only scale when rate is explicitly set (e.g., rate=22000)
-				// When rate comes from WAV file, use it directly - it's already the correct playback rate
+				// For mmlgui playback: scale rates to match Genesis playback speed
+				// If rate == MDSDRV_PCM_RATE (22000), scale by old_base/new_base
+				// For other rates (e.g., rate=8750 or WAV file rates), also try scaling
+				// to account for mmlgui playing too fast
 				const uint32_t OLD_PCM_RATE = 17500;
-				uint32_t playback_rate = sample.rate;
+				uint32_t playback_rate;
 				if(sample.rate == MDSDRV_PCM_RATE)
 				{
-					// Rate was explicitly set to match driver base, scale down to actual playback rate
+					// Rate equals driver base (22000), scale down
+					playback_rate = (uint32_t)(sample.rate * ((double)OLD_PCM_RATE / (double)MDSDRV_PCM_RATE) + 0.5);
+				}
+				else
+				{
+					// For other rates (e.g., 8750 or WAV file rates like 17500)
+					// Scale by same factor to fix mmlgui playing too fast
 					playback_rate = (uint32_t)(sample.rate * ((double)OLD_PCM_RATE / (double)MDSDRV_PCM_RATE) + 0.5);
 				}
 				driver->vgm->dac_start(0x00, sample.position + sample.start, sample.size, playback_rate);

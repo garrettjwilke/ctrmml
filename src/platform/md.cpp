@@ -1208,9 +1208,10 @@ uint8_t MD_PCMDriver::set_ins(int channel, int data)
 	// Pitch calculation: use old base (17500) when rate is from WAV file,
 	// use new base (22000) when rate is explicitly set (e.g., rate=22000)
 	// Heuristic: if rate equals MDSDRV_PCM_RATE, it was likely explicitly set
-	const uint32_t OLD_PCM_RATE = 17500;
-	double base_rate = (sample.rate == MDSDRV_PCM_RATE) ? MDSDRV_PCM_RATE : OLD_PCM_RATE;
-	float pitch = sample.rate / (base_rate / 8.0);
+	float pitch = sample.rate / (MDSDRV_PCM_RATE / 8.0);
+	//const uint32_t OLD_PCM_RATE = 17500;
+	//double base_rate = (sample.rate == MDSDRV_PCM_RATE) ? MDSDRV_PCM_RATE : OLD_PCM_RATE;
+	//float pitch = sample.rate / (base_rate / 8.0);
 	uint8_t cp = pitch + 0.5;
 	if(cp < 1)
 		cp = 1;

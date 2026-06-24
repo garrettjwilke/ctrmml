@@ -40,6 +40,7 @@ CORE_OBJS = \
 	$(OBJ)/vgm.o \
 	$(OBJ)/driver.o \
 	$(OBJ)/wave.o \
+	$(OBJ)/ssdpcm_aud.o \
 	$(OBJ)/riff.o \
 	$(OBJ)/conf.o \
 	$(OBJ)/optimizer.o \

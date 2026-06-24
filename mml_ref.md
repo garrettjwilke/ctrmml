@@ -237,9 +237,11 @@ example `'fm3 0001'`.
 	of the third tone channel (`I`) as the noise frequency source. There will
 	be a conflict if you try to control the frequency from both channels while
 	this is active.
--	`pcmmode <2..3>` - Sets the PCM mixing mode. (`#platform mdsdrv` only).
+-	`pcmmode <2..4>` - Sets the PCM mixing mode. (`#platform mdsdrv` only).
 	`pcmmode 2` supports 2 channel PCM mixing at up to 17.5 kHz, while
 	`pcmmode 3` supports 3 channel PCM mixing at up to 13 kHz.
+	`pcmmode 4` supports SSDPCM on PCM1 (track F) at 32 kHz plus one raw
+	PCM channel on PCM2 (track K).
 -	`pcmrate <1..8>` - Change the PCM pitch. The sample rate can be set in
 	~2.2 kHz steps. This value is temporary and lasts until the next instrument
 	change.
@@ -354,9 +356,17 @@ has more than one channel, the first (left) channel is read.
 
 	@30 pcm "path/to/sample.wav"
 
-You can use a PCM sample from channels `F`, `K` and `L`. However, the
-panning settings from FM channel 6 (`F`) are used and the FM output
-from that channel is muted while PCM samples are playing.
+SSDPCM samples use pre-encoded `.aud` files (ss2 mode, 32 kHz). Use on
+track `F` only with `pcmmode 4`:
+
+	@31 ssdpcm "path/to/sample.aud"
+	@32 ssdpcm "path/to/sample.aud" loop=1
+
+You can use a PCM sample from channels `F`, `K` and `L`. SSDPCM samples
+use channel `F` only. In `pcmmode 4`, raw PCM drums/samples should use
+track `K` (PCM2). For other modes, panning settings from FM channel 6
+(`F`) are used and the FM output from that channel is muted while PCM
+samples are playing.
 
 It is possible to override the sample rate by adding the `rate` parameter:
 

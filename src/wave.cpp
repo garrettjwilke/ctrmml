@@ -348,6 +348,12 @@ const std::vector<uint8_t>& Wave_Bank::get_rom_data()
 	return rom_data;
 }
 
+//! Get include path list
+const Tag& Wave_Bank::get_include_paths() const
+{
+	return include_paths;
+}
+
 //! Get the number of unused allocated bytes in the Wave_Bank.
 unsigned int Wave_Bank::get_free_bytes()
 {

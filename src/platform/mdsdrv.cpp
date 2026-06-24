@@ -14,6 +14,7 @@
 #include "../stringf.h"
 #include "../riff.h"
 #include "../util.h"
+#include "../ssdpcm_aud.h"
 
 //! Lookup register name in str and return the address, or 0 if invalid
 uint8_t MDSDRV_get_register(const std::string& str)
@@ -134,6 +135,12 @@ void MDSDRV_Data::add_instrument(uint16_t id, const Tag& tag)
 	{
 		add_ins_pcm(id, Tag(it, tag.end()));
 		message += "read wave sample " + dump_data(id, envelope_map[id]) + "\n";
+		return;
+	}
+	else if(iequal("ssdpcm", type))
+	{
+		add_ins_ssdpcm(id, Tag(it, tag.end()));
+		message += "read ssdpcm sample " + dump_data(id, envelope_map[id]) + "\n";
 		return;
 	}
 	else
@@ -355,6 +362,58 @@ void MDSDRV_Data::add_ins_pcm(uint16_t id, const Tag& tag)
 
 	envelope_map[id] = add_unique_data(env_data);
 	ins_type[id] = INS_PCM;
+}
+
+//! Add SSDPCM instrument (.aud file)
+void MDSDRV_Data::add_ins_ssdpcm(uint16_t id, const Tag& tag)
+{
+	if(!tag.size())
+		throw InputError(nullptr, "Incomplete ssdpcm sample definition");
+
+	std::string filename = tag[0];
+	SsdpcmAudInfo info;
+	std::vector<uint8_t> payload;
+	int status = -1;
+
+	for(auto&& i : wave_rom.get_include_paths())
+	{
+		std::string fn = i + filename;
+		if(ssdpcm_aud_load(fn, info, payload))
+		{
+			status = 0;
+			break;
+		}
+	}
+	if(status && !ssdpcm_aud_load(filename, info, payload))
+		throw InputError(nullptr, (filename + " not found or invalid SSDPCM .aud").c_str());
+
+	Wave_Bank::Sample header = {
+		0,
+		0,
+		(uint32_t)payload.size(),
+		0,
+		0,
+		info.sample_rate,
+		0,
+		WAVEFLAG_SSDPCM_SS2 | ((uint32_t)ssdpcm_sample_rate_to_mode(info.sample_rate) << 8)
+	};
+
+	int i = 1;
+	uint32_t param;
+	while(tag.size() > i)
+	{
+		if(std::sscanf(tag[i].c_str(), "loop = %u", &param) == 1 && param)
+			header.flags |= WAVEFLAG_SSDPCM_LOOP;
+		else if(std::sscanf(tag[i].c_str(), "mode = %u", &param) == 1 && param <= 2)
+			header.flags = (header.flags & ~0x300) | (param << 8);
+		i++;
+	}
+
+	int wave_header_id = wave_map[id] = wave_rom.add_sample(header, payload);
+	std::vector<uint8_t> env_data = wave_rom.get_sample_headers().at(wave_header_id).to_bytes();
+
+	envelope_map[id] = add_unique_data(env_data);
+	ins_type[id] = INS_SSDPCM;
 }
 
 //! Read pitch envelope
@@ -696,7 +755,8 @@ void MDSDRV_Track_Writer::event_hook()
 			try
 			{
 				check_instrument(param);
-				if(mdsdrv.data.ins_type.at(param) != MDSDRV_Data::INS_PCM)
+				auto ins_type = mdsdrv.data.ins_type.at(param);
+				if(ins_type != MDSDRV_Data::INS_PCM && ins_type != MDSDRV_Data::INS_SSDPCM)
 					converted_events.push_back(MDSDRV_Event(MDSDRV_Event::INS,
 								mdsdrv.get_envelope(mdsdrv.data.envelope_map.at(param))));
 				else
@@ -848,8 +908,8 @@ void MDSDRV_Track_Writer::parse_platform_event(const Tag& tag)
 		if(tag.size() < 2)
 			error("not enough parameters for 'pcmmode' command");
 		uint8_t data = std::strtol(tag[1].c_str(), 0, 0);
-		if(data < 2 || data > 3)
-			error("pcmmode argument must be between 2 and 3");
+		if(data < 2 || data > 4)
+			error("pcmmode argument must be between 2 and 4");
 		converted_events.push_back(MDSDRV_Event(MDSDRV_Event::PCMMODE, data));
 	}
 	else if (iequal(tag[0], "comm"))
@@ -952,13 +1012,13 @@ void MDSDRV_Track_Writer::check_instrument(int16_t param)
 {
 	if (mdsdrv.data.ins_type.count(param))
 	{
-		static const char* strings[4] = {"undefined", "psg", "fm", "pcm"};
+		static const char* strings[5] = {"undefined", "psg", "fm", "pcm", "ssdpcm"};
 		MDSDRV_Data::InstrumentType type = mdsdrv.data.ins_type.at(param);
-		if (type < MDSDRV_Data::INS_UNDEFINED || type > MDSDRV_Data::INS_PCM)
+		if (type < MDSDRV_Data::INS_UNDEFINED || type > MDSDRV_Data::INS_SSDPCM)
 			type = MDSDRV_Data::INS_UNDEFINED;
 
 		if ((track_id >= 0 && track_id < 5 && type != MDSDRV_Data::INS_FM) || // FM instruments
-			(track_id == 5 && type != MDSDRV_Data::INS_FM && type != MDSDRV_Data::INS_PCM))
+			(track_id == 5 && type != MDSDRV_Data::INS_FM && type != MDSDRV_Data::INS_PCM && type != MDSDRV_Data::INS_SSDPCM))
 		{
 			error(stringf("MDSDRV: instrument @%d has wrong type (%s) for FM track %c",
 						  param, strings[type], track_id + 'A').c_str());
@@ -1655,7 +1715,23 @@ void MDSDRV_Linker::add_song(RIFF& mds, const std::string& filename)
 
 std::vector<uint8_t> MDSDRV_Linker::get_pcm_header(const Wave_Bank::Sample& sample) const
 {
-	std::vector<uint8_t> output = {};
+	std::vector<uint8_t> output(8, 0);
+	if(sample.flags & WAVEFLAG_SSDPCM_SS2)
+	{
+		uint32_t block_count = (sample.size - 1) / SSDPCM_SS2_BLOCK_BYTES;
+		uint8_t mode = (sample.flags >> 8) & 3;
+		uint8_t loop = (sample.flags & WAVEFLAG_SSDPCM_LOOP) ? 1 : 0;
+		output[0] = 0x80 | mode;
+		uint32_t addr = sample.position + sample.start;
+		output[1] = (addr >> 16) & 0xff;
+		output[2] = (addr >> 8) & 0xff;
+		output[3] = addr & 0xff;
+		output[4] = block_count & 0xff;
+		output[5] = (block_count >> 8) & 0xff;
+		output[6] = loop;
+		output[7] = 0;
+		return output;
+	}
 	float pitch = sample.rate / (MDSDRV_PCM_RATE / 8.0);
 	uint8_t cp = pitch + 0.5;
 	if(cp < 1)

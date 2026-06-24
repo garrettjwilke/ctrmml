@@ -54,7 +54,8 @@ class MDSDRV_Data
 			INS_UNDEFINED = 0,
 			INS_PSG = 1,
 			INS_FM = 2,
-			INS_PCM = 3
+			INS_PCM = 3,
+			INS_SSDPCM = 4
 		};
 
 		MDSDRV_Data();
@@ -71,6 +72,7 @@ class MDSDRV_Data
 		void add_ins_fm_2op(uint16_t id, const Tag& tag);
 		void add_ins_psg(uint16_t id, const Tag& tag);
 		void add_ins_pcm(uint16_t id, const Tag& tag);
+		void add_ins_ssdpcm(uint16_t id, const Tag& tag);
 
 		void add_pitch_node(const char* s, bool extend, std::vector<uint8_t>* env_data);
 		void add_pitch_vibrato(const char* s, bool extend, std::vector<uint8_t>* env_data);

@@ -76,6 +76,7 @@ class Wave_Bank
 		// Methods to get wave ROM memory
 		const std::vector<Sample>& get_sample_headers();
 		const std::vector<uint8_t>& get_rom_data();
+		const Tag& get_include_paths() const;
 		unsigned int get_free_bytes();
 		unsigned int get_total_gap();
 		unsigned int get_largest_gap();

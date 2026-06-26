@@ -13,6 +13,7 @@
 #include "../song.h"
 #include "../input.h"
 #include "../stringf.h"
+#include "../ssdpcm_aud.h"
 
 
 //! Constructs a MD_Channel.
@@ -250,8 +251,8 @@ uint32_t MD_Channel::parse_platform_event(const Tag& tag, int16_t* platform_stat
 		if(tag.size() < 2)
 			error("not enough parameters for 'pcmmode' command");
 		uint8_t data = std::strtol(tag[1].c_str(), 0, 0);
-		if(data < 2 || data > 3)
-			error("pcmmode argument must be between 2 or 3");
+		if(data < 2 || data > 4)
+			error("pcmmode argument must be between 2 and 4");
 		driver->pcm_rate = driver->pcm.set_mode(data);
 		driver->pcm_counter = 0;
 		driver->pcm_delta = driver->get_rate()/driver->pcm_rate;
@@ -566,7 +567,9 @@ void MD_Channel::set_vol()
 void MD_Channel::set_ins()
 {
 	int16_t ins_id = get_var(Event::INS);
-	if(driver->data.ins_type[ins_id] == MDSDRV_Data::INS_PCM && driver->pcm_mode && pcm_channel_valid)
+	MDSDRV_Data::InstrumentType ins_type = driver->data.ins_type[ins_id];
+	if((ins_type == MDSDRV_Data::INS_PCM || ins_type == MDSDRV_Data::INS_SSDPCM)
+		&& driver->pcm_mode && pcm_channel_valid)
 	{
 		uint8_t rate = driver->pcm.set_ins(pcm_channel_id, ins_id);
 		driver->pcm.set_pitch(pcm_channel_id, rate);
@@ -626,13 +629,14 @@ void MD_Channel::set_vol_fm3()
 void MD_Channel::key_on_pcm()
 {
 	int16_t ins_id = get_var(Event::INS);
-	if(driver->data.ins_type[ins_id] == MDSDRV_Data::INS_PCM)
+	MDSDRV_Data::InstrumentType ins_type = driver->data.ins_type[ins_id];
+	if(ins_type == MDSDRV_Data::INS_PCM || ins_type == MDSDRV_Data::INS_SSDPCM)
 	{
 		if(driver->pcm_mode && pcm_channel_valid)
 		{
 			driver->pcm.key_on(pcm_channel_id);
 		}
-		else if(!driver->pcm_mode)
+		else if(!driver->pcm_mode && ins_type == MDSDRV_Data::INS_PCM)
 		{
 			int wave_header_id = driver->data.wave_map[ins_id];
 			Wave_Bank::Sample sample = driver->data.wave_rom.get_sample_headers().at(wave_header_id);
@@ -1149,6 +1153,7 @@ const uint8_t MD_PCMDriver::pitch_table[2][8] = {
 MD_PCMDriver::MD_PCMDriver(MD_Driver& driver)
 	: driver(&driver)
 	, mode(0)
+	, m4_drum_div(0)
 {
 	if(!tables_initialized)
 	{
@@ -1170,21 +1175,25 @@ MD_PCMDriver::MD_PCMDriver(MD_Driver& driver)
 
 	// init channels
 	for(int i=0; i<3; i++)
-		channels[i] = {false, 0, 0, 0, 0, 0, 0, 0};
+		channels[i] = {false, 0, 0, 0, 0, 0, 0, 0, false, false, 0};
 }
 
 //! Set PCM driver mixing mode
 double MD_PCMDriver::set_mode(int data)
 {
-	if(data < 4)
+	if(data >= 2 && data <= 4)
 		mode = data;
 	else
 		mode = 0;
+
+	m4_drum_div = 0;
 
 	if(data == 2)
 		return 17500.0;
 	else if(data == 3)
 		return 13000.0;
+	else if(data == 4)
+		return SSDPCM_MODE4_RATE; // SSDPCM sample rate; drum (PCM2) runs at half
 	else
 		return 50;
 }
@@ -1198,6 +1207,27 @@ uint8_t MD_PCMDriver::set_ins(int channel, int data)
 	int wave_header_id = driver->data.wave_map[data];
 	Wave_Bank::Sample sample = driver->data.wave_rom.get_sample_headers().at(wave_header_id);
 	channels[channel].start = sample.position + sample.start;
+
+	if(sample.flags & WAVEFLAG_SSDPCM_SS2)
+	{
+		// ss2 SSDPCM stream (mode 4, track F): payload is one initial sample
+		// byte followed by 34-byte blocks of 128 samples each.
+		uint32_t blocks = (sample.size > 0) ? (sample.size - 1) / SSDPCM_SS2_BLOCK_BYTES : 0;
+		channels[channel].ssdpcm = true;
+		channels[channel].loop = (sample.flags & WAVEFLAG_SSDPCM_LOOP) != 0;
+		channels[channel].length = blocks * SSDPCM_SS2_BLOCK_SAMPLES;
+
+		// Pitch follows the rate the .aud was encoded at.
+		if(sample.rate)
+		{
+			driver->pcm_rate = sample.rate;
+			driver->pcm_delta = driver->get_rate() / driver->pcm_rate;
+		}
+		return 8;
+	}
+
+	channels[channel].ssdpcm = false;
+	channels[channel].loop = false;
 	channels[channel].length = sample.size;
 
 	float pitch = sample.rate / (MDSDRV_PCM_RATE / 8.0);
@@ -1222,6 +1252,11 @@ void MD_PCMDriver::set_pitch(int channel, int data)
 	if(channel > mode)
 		return;
 
+	// Mode 4 runs SSDPCM (track F) and the raw drum (track K) at fixed
+	// rates, so the per-channel phase/pitch table is not used.
+	if(mode == 4)
+		return;
+
 	// Skip counter
 	if(mode == 3)
 		channels[channel].count = 3;
@@ -1240,6 +1275,14 @@ void MD_PCMDriver::key_on(int channel)
 		driver->ym2612_w(0, 0x2b, 0, 0, 0x80);
 
 	channels[channel].position = 0;
+	if(channels[channel].ssdpcm)
+	{
+		// Seed the accumulator with the initial (centered) sample byte.
+		const std::vector<uint8_t>& rom = driver->data.wave_rom.get_rom_data();
+		channels[channel].ss_acc = (int8_t)(rom[channels[channel].start] ^ 0x80);
+	}
+	if(channel == 1)
+		m4_drum_div = 0; // restart the drum half-rate divider cleanly
 	channels[channel].enabled = true;
 }
 
@@ -1259,12 +1302,99 @@ void MD_PCMDriver::update()
 	if(!mode)
 		return;
 
+	if(mode == 4)
+	{
+		update_mode4();
+		return;
+	}
+
 	int8_t accumulator = 0;
 	for(int i=0; i<mode; i++)
 		accumulator = mix_channel(accumulator, i);
 
 	if(channels[0].enabled || channels[1].enabled || channels[2].enabled)
 		driver->ym2612_w(0, 0x2a, 0, 0, accumulator ^ 0x80);
+}
+
+//! Decode and accumulate one ss2 SSDPCM sample for the given channel.
+/*!
+ * Each block is two signed slope bytes (s0, s1) forming the lookup table
+ * {s0, s1, -s0, -s1}, followed by 32 codeword bytes packing four MSB-first
+ * 2-bit codes each. The running accumulator wraps at 8 bits, exactly like
+ * the Z80 mode-4 decode loop. Returns the new signed sample.
+ */
+int8_t MD_PCMDriver::ssdpcm_step(int channel)
+{
+	MD_PCMChannel& ch = channels[channel];
+	const std::vector<uint8_t>& rom = driver->data.wave_rom.get_rom_data();
+
+	uint32_t block = ch.position / SSDPCM_SS2_BLOCK_SAMPLES;
+	uint32_t idx = ch.position % SSDPCM_SS2_BLOCK_SAMPLES;
+	uint32_t block_base = ch.start + 1 + block * SSDPCM_SS2_BLOCK_BYTES;
+
+	int8_t s0 = (int8_t)rom[block_base + 0];
+	int8_t s1 = (int8_t)rom[block_base + 1];
+	uint8_t codeword = rom[block_base + 2 + (idx >> 2)];
+	uint8_t code = (codeword >> (6 - ((idx & 3) << 1))) & 3;
+
+	int8_t slope = (code & 1) ? s1 : s0;
+	if(code & 2)
+		slope = -slope;
+	ch.ss_acc = (int8_t)(ch.ss_acc + slope);
+
+	if(++ch.position >= ch.length)
+	{
+		if(ch.loop)
+		{
+			ch.position = 0;
+			ch.ss_acc = (int8_t)(rom[ch.start] ^ 0x80);
+		}
+		else
+		{
+			key_off(channel);
+		}
+	}
+	return ch.ss_acc;
+}
+
+//! Mode 4: SSDPCM melody (PCM1/track F) mixed with one raw drum (PCM2/track K).
+/*!
+ * Mirrors mdssub_m4.z80: the SSDPCM channel decodes one sample per call while
+ * the raw drum advances at half that rate (two SSDPCM samples per drum byte).
+ * Both are summed in the signed domain with an overflow clamp, then written to
+ * the YM2612 DAC.
+ */
+void MD_PCMDriver::update_mode4()
+{
+	bool ss_on = channels[0].enabled && channels[0].ssdpcm;
+	bool drum_on = channels[1].enabled;
+	if(!ss_on && !drum_on)
+		return;
+
+	int16_t mix = 0;
+	if(ss_on)
+		mix = ssdpcm_step(0);
+
+	if(drum_on)
+	{
+		const std::vector<uint8_t>& rom = driver->data.wave_rom.get_rom_data();
+		mix += (int8_t)(rom[channels[1].start + channels[1].position] ^ 0x80);
+		// Drum rate = SSDPCM rate / 2: advance once every other sample.
+		if(m4_drum_div)
+		{
+			if(++channels[1].position >= channels[1].length)
+				key_off(1);
+		}
+		m4_drum_div ^= 1;
+	}
+
+	// Signed-overflow clamp (matches the Z80 mix), then back to unsigned.
+	if(mix > 127)
+		mix = 127;
+	else if(mix < -128)
+		mix = -128;
+
+	driver->ym2612_w(0, 0x2a, 0, 0, (mix & 0xff) ^ 0x80);
 }
 
 inline int8_t MD_PCMDriver::mix_channel(int16_t accumulator, int channel)

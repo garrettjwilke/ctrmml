@@ -16,6 +16,7 @@ add_library(ctrmml
 	src/vgm.cpp
 	src/driver.cpp
 	src/wave.cpp
+	src/ssdpcm_aud.cpp
 	src/riff.cpp
 	src/conf.cpp
 	src/optimizer.cpp

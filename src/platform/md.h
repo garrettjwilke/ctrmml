@@ -232,6 +232,11 @@ struct MD_PCMChannel
 	uint8_t phase;
 	uint8_t count;
 
+	// SSDPCM (mode 4) decode state
+	bool ssdpcm;     //!< channel plays a ss2 SSDPCM stream (track F)
+	bool loop;       //!< restart from the beginning when finished
+	int8_t ss_acc;   //!< running signed accumulator (8-bit wraparound, like the Z80)
+
 	inline int update_phase()
 	{
 		int out = phase >> 7;
@@ -260,8 +265,11 @@ class MD_PCMDriver
 		MD_PCMChannel channels[3];
 
 		int mode;
+		uint8_t m4_drum_div; //!< mode 4: PCM2 drum advances every other SSDPCM sample
 
 		int8_t mix_channel(int16_t accumulator, int channel);
+		void update_mode4();
+		int8_t ssdpcm_step(int channel);
 
 		static bool tables_initialized;
 		static int8_t vol_table[16][256];

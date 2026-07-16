@@ -1193,7 +1193,7 @@ double MD_PCMDriver::set_mode(int data)
 	else if(data == 3)
 		return 13000.0;
 	else if(data == 4)
-		return SSDPCM_MODE4_RATE; // SSDPCM sample rate; drum (PCM2) runs at half
+		return SSDPCM_MODE4_RATE; // SSDPCM + drum (PCM2) both at 17.5 kHz (1:1)
 	else
 		return 50;
 }
@@ -1282,7 +1282,7 @@ void MD_PCMDriver::key_on(int channel)
 		channels[channel].ss_acc = (int8_t)(rom[channels[channel].start] ^ 0x80);
 	}
 	if(channel == 1)
-		m4_drum_div = 0; // restart the drum half-rate divider cleanly
+		m4_drum_div = 0;
 	channels[channel].enabled = true;
 }
 
@@ -1359,10 +1359,9 @@ int8_t MD_PCMDriver::ssdpcm_step(int channel)
 
 //! Mode 4: SSDPCM melody (PCM1/track F) mixed with one raw drum (PCM2/track K).
 /*!
- * Mirrors mdssub_m4.z80: the SSDPCM channel decodes one sample per call while
- * the raw drum advances at half that rate (two SSDPCM samples per drum byte).
- * Both are summed in the signed domain with an overflow clamp, then written to
- * the YM2612 DAC.
+ * Mirrors mdssub_m4.z80: SSDPCM and the raw drum both advance one sample per
+ * call (1:1 at ~17.5 kHz). Both are summed in the signed domain with an
+ * overflow clamp, then written to the YM2612 DAC.
  */
 void MD_PCMDriver::update_mode4()
 {
@@ -1379,13 +1378,9 @@ void MD_PCMDriver::update_mode4()
 	{
 		const std::vector<uint8_t>& rom = driver->data.wave_rom.get_rom_data();
 		mix += (int8_t)(rom[channels[1].start + channels[1].position] ^ 0x80);
-		// Drum rate = SSDPCM rate / 2: advance once every other sample.
-		if(m4_drum_div)
-		{
-			if(++channels[1].position >= channels[1].length)
-				key_off(1);
-		}
-		m4_drum_div ^= 1;
+		// Drum rate = SSDPCM rate (1:1): advance every sample.
+		if(++channels[1].position >= channels[1].length)
+			key_off(1);
 	}
 
 	// Signed-overflow clamp (matches the Z80 mix), then back to unsigned.

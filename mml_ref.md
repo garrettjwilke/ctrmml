@@ -240,8 +240,8 @@ example `'fm3 0001'`.
 -	`pcmmode <2..4>` - Sets the PCM mixing mode. (`#platform mdsdrv` only).
 	`pcmmode 2` supports 2 channel PCM mixing at up to 17.5 kHz, while
 	`pcmmode 3` supports 3 channel PCM mixing at up to 13 kHz.
-	`pcmmode 4` supports SSDPCM on PCM1 (track F) at 32 kHz plus one raw
-	PCM channel on PCM2 (track K).
+	`pcmmode 4` supports SSDPCM on PCM1 (track F) plus one raw PCM channel
+	on PCM2 (track K), both at ~17.5 kHz (1:1).
 -	`pcmrate <1..8>` - Change the PCM pitch. The sample rate can be set in
 	~2.2 kHz steps. This value is temporary and lasts until the next instrument
 	change.
@@ -356,8 +356,8 @@ has more than one channel, the first (left) channel is read.
 
 	@30 pcm "path/to/sample.wav"
 
-SSDPCM samples use pre-encoded `.aud` files (ss2 mode, 32 kHz). Use on
-track `F` only with `pcmmode 4`:
+SSDPCM samples use pre-encoded `.aud` files (ss2 mode, typically 17.5 kHz
+for mode-4 hybrid). Use on track `F` only with `pcmmode 4`:
 
 	@31 ssdpcm "path/to/sample.aud"
 	@32 ssdpcm "path/to/sample.aud" loop=1

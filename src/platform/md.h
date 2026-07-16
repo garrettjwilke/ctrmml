@@ -265,7 +265,7 @@ class MD_PCMDriver
 		MD_PCMChannel channels[3];
 
 		int mode;
-		uint8_t m4_drum_div; //!< mode 4: PCM2 drum advances every other SSDPCM sample
+		uint8_t m4_drum_div; //!< unused (mode 4 drums are 1:1 with SSDPCM)
 
 		int8_t mix_channel(int16_t accumulator, int channel);
 		void update_mode4();

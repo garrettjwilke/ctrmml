@@ -27,8 +27,8 @@ target_include_directories(ctrmml PUBLIC src)
 add_executable(mmlc src/mmlc.cpp)
 target_link_libraries(mmlc ctrmml)
 
-add_executable(mdslink-rng src/platform/mdslink.cpp)
-target_link_libraries(mdslink-rng ctrmml)
+add_executable(mdslink-ssdpcm src/platform/mdslink.cpp)
+target_link_libraries(mdslink-ssdpcm ctrmml)
 
 if(CPPUNIT_FOUND)
 	add_executable(ctrmml_unittest

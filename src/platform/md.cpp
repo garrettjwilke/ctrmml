@@ -1189,11 +1189,11 @@ double MD_PCMDriver::set_mode(int data)
 	m4_drum_div = 0;
 
 	if(data == 2)
-		return 17500.0;
+		return 17000.0;
 	else if(data == 3)
 		return 13000.0;
 	else if(data == 4)
-		return SSDPCM_MODE4_RATE; // SSDPCM + drum (PCM2) both at 17.5 kHz (1:1)
+		return SSDPCM_MODE4_RATE; // SSDPCM + drum (PCM2) both at ~17 kHz (1:1)
 	else
 		return 50;
 }

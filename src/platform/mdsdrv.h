@@ -30,7 +30,7 @@ class MDSDRV_Platform;
 #define MDSDRV_MIN_SEQ_VERSION_MINOR 2
 
 // PCM sampling rate
-#define MDSDRV_PCM_RATE 17500
+#define MDSDRV_PCM_RATE 17000
 
 //! helper functions for MDSDRV
 uint8_t MDSDRV_get_register(const std::string& str);

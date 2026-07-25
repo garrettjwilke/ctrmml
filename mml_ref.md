@@ -201,9 +201,9 @@ the VGM files, sample mixing and volume will not be supported.
 
 Setting `#platform` to `mdsdrv` will simulate MDSDRV's PCM driver. 2-3
 PCM channels can be mixed, and 16 levels of volume control is possible.
-The sample rate is however fixed to ~2khz increments up to 17.5 kHz, to match
+The sample rate is however fixed to ~2khz increments up to ~17 kHz, to match
 the real MDSDRV code. By default, two channel mixing is enabled and the
-output sampling rate is 17.5 Khz.
+output sampling rate is ~17 kHz.
 
 Use `#option noextpitch` to disable extended pitch envelopes for compatibility
 with older MML files.
@@ -238,10 +238,10 @@ example `'fm3 0001'`.
 	be a conflict if you try to control the frequency from both channels while
 	this is active.
 -	`pcmmode <2..4>` - Sets the PCM mixing mode. (`#platform mdsdrv` only).
-	`pcmmode 2` supports 2 channel PCM mixing at up to 17.5 kHz, while
+	`pcmmode 2` supports 2 channel PCM mixing at up to ~17 kHz, while
 	`pcmmode 3` supports 3 channel PCM mixing at up to 13 kHz.
 	`pcmmode 4` supports SSDPCM on PCM1 (track F) plus one raw PCM channel
-	on PCM2 (track K), both at ~17.5 kHz (1:1).
+	on PCM2 (track K), both at ~17 kHz (1:1).
 -	`pcmrate <1..8>` - Change the PCM pitch. The sample rate can be set in
 	~2.2 kHz steps. This value is temporary and lasts until the next instrument
 	change.
@@ -356,7 +356,7 @@ has more than one channel, the first (left) channel is read.
 
 	@30 pcm "path/to/sample.wav"
 
-SSDPCM samples use pre-encoded `.aud` files (ss2 mode, typically 17.5 kHz
+SSDPCM samples use pre-encoded `.aud` files (ss2 mode, typically 17 kHz
 for mode-4 hybrid). Use on track `F` only with `pcmmode 4`:
 
 	@31 ssdpcm "path/to/sample.aud"

@@ -12,7 +12,7 @@
 
 //! Fallback mode-4 playback rate (Hz). The actual rate is taken from each
 //! .aud's stored sample rate at key-on; this is only the initial default.
-#define SSDPCM_MODE4_RATE 17500
+#define SSDPCM_MODE4_RATE 17000
 
 #define SSDPCM_MODE_32000 0
 #define SSDPCM_MODE_22050 1

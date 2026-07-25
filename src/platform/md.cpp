@@ -1217,13 +1217,13 @@ uint8_t MD_PCMDriver::set_ins(int channel, int data)
 		channels[channel].loop = (sample.flags & WAVEFLAG_SSDPCM_LOOP) != 0;
 		channels[channel].length = blocks * SSDPCM_SS2_BLOCK_SAMPLES;
 
-		// Pitch follows the rate the .aud was encoded at.
-		if(sample.rate)
-		{
-			driver->pcm_rate = sample.rate;
-			driver->pcm_delta = driver->get_rate() / driver->pcm_rate;
-		}
-		return 8;
+		float pitch = sample.rate / (MDSDRV_PCM_RATE / 8.0);
+		uint8_t cp = pitch + 0.5;
+		if(cp < 1)
+			cp = 1;
+		else if(cp > 8)
+			cp = 8;
+		return cp;
 	}
 
 	channels[channel].ssdpcm = false;
@@ -1250,11 +1250,6 @@ void MD_PCMDriver::set_vol(int channel, int data)
 void MD_PCMDriver::set_pitch(int channel, int data)
 {
 	if(channel > mode)
-		return;
-
-	// Mode 4 runs SSDPCM (track F) and the raw drum (track K) at fixed
-	// rates, so the per-channel phase/pitch table is not used.
-	if(mode == 4)
 		return;
 
 	// Skip counter
@@ -1357,37 +1352,29 @@ int8_t MD_PCMDriver::ssdpcm_step(int channel)
 	return ch.ss_acc;
 }
 
-//! Mode 4: SSDPCM melody (PCM1/track F) mixed with one raw drum (PCM2/track K).
+//! Mode 4: mode-2 mixing with SSDPCM as the PCM1 source.
 /*!
- * Mirrors mdssub_m4.z80: SSDPCM and the raw drum both advance one sample per
- * call (1:1 at ~17.5 kHz). Both are summed in the signed domain with an
- * overflow clamp, then written to the YM2612 DAC.
+ * Both channels use the normal mode-2 pitch and volume paths. PCM1 advances
+ * its ss2 decoder according to the same phase table used by raw PCM; PCM2 is
+ * handled by mix_channel unchanged.
  */
 void MD_PCMDriver::update_mode4()
 {
 	bool ss_on = channels[0].enabled && channels[0].ssdpcm;
-	bool drum_on = channels[1].enabled;
-	if(!ss_on && !drum_on)
+	if(!ss_on && !channels[1].enabled)
 		return;
 
 	int16_t mix = 0;
 	if(ss_on)
-		mix = ssdpcm_step(0);
-
-	if(drum_on)
 	{
-		const std::vector<uint8_t>& rom = driver->data.wave_rom.get_rom_data();
-		mix += (int8_t)(rom[channels[1].start + channels[1].position] ^ 0x80);
-		// Drum rate = SSDPCM rate (1:1): advance every sample.
-		if(++channels[1].position >= channels[1].length)
-			key_off(1);
+		MD_PCMChannel& ch = channels[0];
+		int8_t sample = ch.ss_acc;
+		if(ch.update_phase())
+			sample = ssdpcm_step(0);
+		mix = vol_table[ch.volume][(uint8_t)(sample ^ 0x80)];
 	}
 
-	// Signed-overflow clamp (matches the Z80 mix), then back to unsigned.
-	if(mix > 127)
-		mix = 127;
-	else if(mix < -128)
-		mix = -128;
+	mix = mix_channel(mix, 1);
 
 	driver->ym2612_w(0, 0x2a, 0, 0, (mix & 0xff) ^ 0x80);
 }

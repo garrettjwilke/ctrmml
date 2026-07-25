@@ -1719,9 +1719,14 @@ std::vector<uint8_t> MDSDRV_Linker::get_pcm_header(const Wave_Bank::Sample& samp
 	if(sample.flags & WAVEFLAG_SSDPCM_SS2)
 	{
 		uint32_t block_count = (sample.size - 1) / SSDPCM_SS2_BLOCK_BYTES;
-		uint8_t mode = (sample.flags >> 8) & 3;
 		uint8_t loop = (sample.flags & WAVEFLAG_SSDPCM_LOOP) ? 1 : 0;
-		output[0] = 0x80 | mode;
+		float pitch = sample.rate / (MDSDRV_PCM_RATE / 8.0);
+		uint8_t cp = pitch + 0.5;
+		if(cp < 1)
+			cp = 1;
+		else if(cp > 8)
+			cp = 8;
+		output[0] = 0x80 | cp;
 		uint32_t addr = sample.position + sample.start;
 		output[1] = (addr >> 16) & 0xff;
 		output[2] = (addr >> 8) & 0xff;

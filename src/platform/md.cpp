@@ -1181,6 +1181,9 @@ MD_PCMDriver::MD_PCMDriver(MD_Driver& driver)
 //! Set PCM driver mixing mode
 double MD_PCMDriver::set_mode(int data)
 {
+	if(data == 3)
+		data = 2; // 3ch mixer removed; alias to mode 2
+
 	if(data >= 2 && data <= 4)
 		mode = data;
 	else
@@ -1190,8 +1193,6 @@ double MD_PCMDriver::set_mode(int data)
 
 	if(data == 2)
 		return 17000.0;
-	else if(data == 3)
-		return 13000.0;
 	else if(data == 4)
 		return SSDPCM_MODE4_RATE; // SSDPCM + drum (PCM2) both at ~17 kHz (1:1)
 	else
@@ -1252,11 +1253,7 @@ void MD_PCMDriver::set_pitch(int channel, int data)
 	if(channel > mode)
 		return;
 
-	// Skip counter
-	if(mode == 3)
-		channels[channel].count = 3;
-	else
-		channels[channel].count = 0;
+	channels[channel].count = 0;
 
 	channels[channel].phase = pitch_table[0][(data - 1) & 7];
 }

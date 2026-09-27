@@ -238,13 +238,16 @@ example `'fm3 0001'`.
 	be a conflict if you try to control the frequency from both channels while
 	this is active.
 -	`pcmmode <2..4>` - Sets the PCM mixing mode. (`#platform mdsdrv` only).
-	`pcmmode 2` supports 2 channel PCM mixing at up to ~17 kHz, while
-	`pcmmode 3` supports 3 channel PCM mixing at up to 13 kHz.
+	`pcmmode 2` supports 2 channel PCM mixing at up to ~17 kHz.
+	`pcmmode 3` is treated as mode 2 (the 3-channel mixer was removed).
 	`pcmmode 4` supports SSDPCM on PCM1 (track F) plus one raw PCM channel
-	on PCM2 (track K), both at ~17 kHz (1:1).
--	`pcmrate <1..8>` - Change the PCM pitch. The sample rate can be set in
-	~2.2 kHz steps. This value is temporary and lasts until the next instrument
-	change.
+	on PCM2 (track K), both at ~17 kHz. `'pcmrate' 1..8` holds or steps
+	the SSDPCM decoder; volume on track F is asset loudness only.
+-	`pcmrate <1..8>` - Change the PCM pitch (`1` ≈ 2.1 kHz, `8` ≈ 17 kHz).
+	On raw PCM this lasts until the next instrument change, which reloads
+	the sample header rate. On SSDPCM (`pcmmode 4`) it persists across
+	`@ssdpcm` / `D` instrument changes until another `'pcmrate'` command
+	(drum macros like `*301 @301a;` reload the instrument on every note).
 -	`rndpat *<sub1> *<sub2> [*<sub3> ...]` - Random pattern selection. Each time
 	this command is executed, one of the specified subroutines is randomly
 	chosen and called. This enables variable/dynamic music where different

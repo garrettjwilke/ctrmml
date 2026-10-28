@@ -16,12 +16,17 @@ class MD_Driver;
 //! Megadrive abstract channel
 class MD_Channel : public Player
 {
-	friend MD_MacroTrack;
+	friend class MD_MacroTrack;
+	friend class MD_Driver;
 
 	public:
 		MD_Channel(MD_Driver& driver, int id);
 		void update(int seq_ticks);
 		void seek(int ticks);
+		void live_note_on(int pitch, int velocity);
+		void live_note_off(int pitch);
+		void live_bend(int semitones);
+		int get_channel_id() const { return channel_id; }
 
 	protected:
 		enum
@@ -295,6 +300,10 @@ class MD_Driver : public Driver
 		int get_loop_count();
 		double play_step();
 		uint32_t get_player_ticks();
+
+		void live_note_on(int track, int pitch, int velocity) override;
+		void live_note_off(int track, int pitch) override;
+		void live_bend(int track, int semitones) override;
 
 	private:
 		uint8_t bpm_to_delta(uint16_t bpm);

@@ -1603,3 +1603,84 @@ uint32_t MD_Driver::get_player_ticks()
 {
 	return ticks;
 }
+
+void MD_Channel::live_note_on(int p, int velocity)
+{
+	if(get_var(Event::INS) == 0 && driver && driver->song)
+	{
+		Track& tr = driver->song->get_track(channel_id);
+		for(const auto& ev : tr.get_events())
+		{
+			if(ev.type == Event::INS)
+			{
+				set_var(Event::INS, ev.param);
+				break;
+			}
+		}
+	}
+	v_set_ins();
+	v_set_pan();
+	note_pitch = ((int16_t)p + (int16_t)get_var(Event::TRANSPOSE)) << 8;
+	note_pitch += get_var(Event::DETUNE);
+	porta_value = note_pitch;
+	key_on_flag = true;
+	update_pitch();
+	set_pitch();
+	int vel = (velocity > 0) ? (velocity > 127 ? 127 : velocity) : 100;
+	uint8_t orig_vol = get_var(Event::VOL_FINE);
+	uint8_t vel_vol = (127 - vel) * 15 / 126;
+	set_var(Event::VOL_FINE, vel_vol);
+	set_vol();
+	set_var(Event::VOL_FINE, orig_vol);
+	key_on();
+}
+
+void MD_Channel::live_note_off(int p)
+{
+	(void)p;
+	key_off();
+}
+
+void MD_Channel::live_bend(int semitones)
+{
+	note_pitch += (semitones << 8);
+	update_pitch();
+	set_pitch();
+}
+
+void MD_Driver::live_note_on(int track, int pitch, int velocity)
+{
+	for(auto& ch : channels)
+	{
+		if(ch->channel_id == track)
+		{
+			ch->live_note_on(pitch, velocity);
+			return;
+		}
+	}
+}
+
+void MD_Driver::live_note_off(int track, int pitch)
+{
+	for(auto& ch : channels)
+	{
+		if(ch->channel_id == track)
+		{
+			ch->live_note_off(pitch);
+			return;
+		}
+	}
+}
+
+void MD_Driver::live_bend(int track, int semitones)
+{
+	for(auto& ch : channels)
+	{
+		if(ch->channel_id == track)
+		{
+			ch->live_bend(semitones);
+			return;
+		}
+	}
+}
+

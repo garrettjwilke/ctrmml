@@ -64,7 +64,6 @@ class MD_Channel : public Player
 
 		bool slur_flag; //!< Flag to disable key on for the next note
 		bool key_on_flag;
-		int live_active_pitch; //!< Pitch of the currently sounding live (audition) note, or -1 if none
 		// Portamento
 		uint16_t note_pitch; //< Target pitch for portamento
 		uint16_t porta_value; //!< Current pitch (256 'cents' per semitone)

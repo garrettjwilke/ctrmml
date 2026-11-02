@@ -25,7 +25,6 @@ MD_Channel::MD_Channel(MD_Driver& driver, int id)
 	pcm_channel_valid(0),
 	slur_flag(0),
 	key_on_flag(0),
-	live_active_pitch(-1),
 	note_pitch(0xffff),
 	porta_value(0),
 	last_pitch(0),
@@ -1608,7 +1607,6 @@ uint32_t MD_Driver::get_player_ticks()
 
 void MD_Channel::live_note_on(int p, int velocity)
 {
-	live_active_pitch = p;
 	if(get_var(Event::INS) == 0 && driver && driver->song)
 	{
 		Track& tr = driver->song->get_track(channel_id);
@@ -1631,22 +1629,21 @@ void MD_Channel::live_note_on(int p, int velocity)
 	set_pitch();
 	int vel = (velocity > 0) ? (velocity > 127 ? 127 : velocity) : 100;
 	uint8_t orig_vol = get_var(Event::VOL_FINE);
-	uint8_t vel_vol = (127 - vel) * 15 / 126;
+	bool orig_coarse = coarse_volume_flag();
+	set_coarse_volume_flag(false);
+	uint8_t vel_vol = (127 - vel) * 63 / 126;
+	if(vel_vol > 127) vel_vol = 127;
 	set_var(Event::VOL_FINE, vel_vol);
 	set_vol();
 	set_var(Event::VOL_FINE, orig_vol);
+	set_coarse_volume_flag(orig_coarse);
 	key_on();
 }
 
 void MD_Channel::live_note_off(int p)
 {
-	// Only the note currently sounding (the most recently pressed) may be
-	// released. A pad released after a newer note has stolen the channel must
-	// not cut off that newer note.
-	if(live_active_pitch != -1 && p != live_active_pitch)
-		return;
+	(void)p;
 	key_off();
-	live_active_pitch = -1;
 }
 
 void MD_Channel::live_bend(int semitones)

@@ -974,7 +974,8 @@ void MD_PSG::v_update_envelope()
 
 void MD_PSG::v_set_pan()
 {
-	error("Panning not supported for PSG channels");
+	// PSG channels do not support panning; ignore instead of throwing,
+	// so live pad audition on PSG/hat tracks does not abort the audio thread.
 }
 
 //! Constructs a MD_PSGMelody.

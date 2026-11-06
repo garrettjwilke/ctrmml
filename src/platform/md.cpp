@@ -632,6 +632,10 @@ void MD_Channel::key_on_pcm()
 	MDSDRV_Data::InstrumentType ins_type = driver->data.ins_type[ins_id];
 	if(ins_type == MDSDRV_Data::INS_PCM || ins_type == MDSDRV_Data::INS_SSDPCM)
 	{
+		if(driver->vgm)
+		{
+			driver->vgm->pcm_trigger(channel_id, ins_id, get_var(Event::VOL));
+		}
 		if(driver->pcm_mode && pcm_channel_valid)
 		{
 			driver->pcm.key_on(pcm_channel_id);
@@ -652,6 +656,11 @@ void MD_Channel::key_on_pcm()
 
 void MD_Channel::key_off_pcm()
 {
+	int16_t ins_id = get_var(Event::INS);
+	if(driver->vgm)
+	{
+		driver->vgm->pcm_release(channel_id, ins_id);
+	}
 	if(driver->pcm_mode && pcm_channel_valid)
 	{
 		driver->pcm.key_off(pcm_channel_id);

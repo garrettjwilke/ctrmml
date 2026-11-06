@@ -34,6 +34,10 @@ class VGM_Interface
 		//! Stop a DAC stream
 		virtual void dac_stop(uint8_t sid) = 0;
 
+		//! Trigger sample/PCM playback in high quality (for mpc-mdsdrv)
+		virtual void pcm_trigger(int channel, int ins_id, int velocity) { (void)channel; (void)ins_id; (void)velocity; }
+		virtual void pcm_release(int channel, int ins_id) { (void)channel; (void)ins_id; }
+
 		// TODO: these should be replaced with appropriate functions to enable sound chips / set attributes
 		//! Set a 32-bit attribute (VGM header)
 		virtual void poke32(uint32_t offset, uint32_t data) = 0;

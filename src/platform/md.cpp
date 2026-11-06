@@ -629,6 +629,7 @@ void MD_Channel::set_vol_fm3()
 void MD_Channel::key_on_pcm()
 {
 	int16_t ins_id = get_var(Event::INS);
+	printf("DEBUG key_on_pcm: channel_id=%d, ins_id=%d\n", channel_id, ins_id);
 	MDSDRV_Data::InstrumentType ins_type = driver->data.ins_type[ins_id];
 	if(ins_type == MDSDRV_Data::INS_PCM || ins_type == MDSDRV_Data::INS_SSDPCM)
 	{
@@ -1479,6 +1480,7 @@ void MD_Driver::play_song(Song& song)
 	for(auto it=song.get_track_map().begin(); it != song.get_track_map().end(); it++)
 	{
 		int id = it->first;
+		printf("DEBUG channel init: id=%d\n", id);
 		if(id < 6)
 			channels.push_back(std::make_unique<MD_FM>(*this, id, id));
 		else if(id < 9)

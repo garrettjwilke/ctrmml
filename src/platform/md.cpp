@@ -634,7 +634,7 @@ void MD_Channel::key_on_pcm()
 	{
 		if(driver->vgm)
 		{
-			driver->vgm->pcm_trigger(channel_id, ins_id, get_var(Event::VOL));
+			driver->vgm->pcm_trigger(channel_id, ins_id, get_var(Event::VOL_FINE));
 		}
 		if(driver->pcm_mode && pcm_channel_valid)
 		{

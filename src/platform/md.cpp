@@ -1664,12 +1664,16 @@ void MD_Channel::live_bend(int semitones)
 	set_pitch();
 }
 
-void MD_Driver::live_note_on(int track, int pitch, int velocity)
+void MD_Driver::live_note_on(int track, int pitch, int velocity, int ins_id)
 {
 	for(auto& ch : channels)
 	{
 		if(ch->channel_id == track)
 		{
+			if(ins_id > 0)
+			{
+				ch->set_var(Event::INS, ins_id);
+			}
 			ch->live_note_on(pitch, velocity);
 			return;
 		}

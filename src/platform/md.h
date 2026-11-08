@@ -308,6 +308,7 @@ class MD_Driver : public Driver
 		void live_bend(int track, int semitones) override;
 		int get_channel_volume(int track) override;
 		int get_last_pcm_channel() override { return last_pcm_channel; }
+		int get_last_pcm_ins() override { return last_pcm_ins; }
 
 	private:
 		uint8_t bpm_to_delta(uint16_t bpm);
@@ -337,6 +338,7 @@ class MD_Driver : public Driver
 		uint8_t fm3_tl[4];
 
 		int last_pcm_channel;
+		int last_pcm_ins;
 
 		bool loop_trigger;
 };

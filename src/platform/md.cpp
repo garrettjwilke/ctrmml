@@ -342,7 +342,33 @@ void MD_Channel::write_event()
 		case Event::PAN_ENVELOPE:
 			macro_carry = false;
 			reset_macro_track();
+			break;
+		case Event::VOL:
+			seq_vol = event.param;
+			seq_coarse = true;
+			set_var(Event::VOL_FINE, event.param);
+			set_coarse_volume_flag(true);
+			set_vol();
+			break;
+		case Event::VOL_REL:
+		case Event::VOL_FINE_REL:
+			seq_vol = get_var(Event::VOL_FINE);
+			set_vol();
+			break;
+		case Event::VOL_FINE:
+			seq_vol = event.param;
+			seq_coarse = false;
+			set_var(Event::VOL_FINE, event.param);
+			set_coarse_volume_flag(false);
+			set_vol();
+			break;
 		default:
+			if(get_update_flag(Event::VOL_FINE))
+			{
+				seq_vol = get_var(Event::VOL_FINE);
+				seq_coarse = coarse_volume_flag();
+				set_vol();
+			}
 			break;
 	}
 }
@@ -634,7 +660,6 @@ void MD_Channel::set_vol_fm3()
 void MD_Channel::key_on_pcm()
 {
 	int16_t ins_id = get_var(Event::INS);
-	printf("DEBUG key_on_pcm: channel_id=%d, ins_id=%d\n", channel_id, ins_id);
 	MDSDRV_Data::InstrumentType ins_type = driver->data.ins_type[ins_id];
 	if(ins_type == MDSDRV_Data::INS_PCM || ins_type == MDSDRV_Data::INS_SSDPCM)
 	{
@@ -651,6 +676,7 @@ void MD_Channel::key_on_pcm()
 			int wave_header_id = driver->data.wave_map[ins_id];
 			Wave_Bank::Sample sample = driver->data.wave_rom.get_sample_headers().at(wave_header_id);
 			driver->last_pcm_channel = channel_id;
+			driver->last_pcm_ins = ins_id;
 			driver->ym2612_w(0, 0x2b, 0, 0, 0x80); // DAC enable
 			if(driver->vgm)
 			{
@@ -1448,6 +1474,7 @@ MD_Driver::MD_Driver(unsigned int rate, VGM_Interface* vgm_interface, int pcm_mo
 	, fm3_con(0)
 	, fm3_tl()
 	, last_pcm_channel(-1)
+	, last_pcm_ins(-1)
 	, loop_trigger(0)
 {
 	if(vgm)
@@ -1492,7 +1519,6 @@ void MD_Driver::play_song(Song& song)
 	for(auto it=song.get_track_map().begin(); it != song.get_track_map().end(); it++)
 	{
 		int id = it->first;
-		printf("DEBUG channel init: id=%d\n", id);
 		if(id < 6)
 			channels.push_back(std::make_unique<MD_FM>(*this, id, id));
 		else if(id < 9)

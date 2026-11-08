@@ -255,6 +255,7 @@ uint32_t MD_Channel::parse_platform_event(const Tag& tag, int16_t* platform_stat
 		uint8_t data = std::strtol(tag[1].c_str(), 0, 0);
 		if(data < 2 || data > 4)
 			error("pcmmode argument must be between 2 and 4");
+		driver->pcm_mode = data;
 		driver->pcm_rate = driver->pcm.set_mode(data);
 		driver->pcm_counter = 0;
 		driver->pcm_delta = driver->get_rate()/driver->pcm_rate;

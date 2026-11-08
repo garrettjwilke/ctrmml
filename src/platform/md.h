@@ -307,6 +307,7 @@ class MD_Driver : public Driver
 		void live_note_off(int track, int pitch) override;
 		void live_bend(int track, int semitones) override;
 		int get_channel_volume(int track) override;
+		int get_last_pcm_channel() override { return last_pcm_channel; }
 
 	private:
 		uint8_t bpm_to_delta(uint16_t bpm);

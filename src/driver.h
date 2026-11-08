@@ -45,6 +45,7 @@ class Driver
 		virtual void live_note_off(int track, int pitch) { (void)track; (void)pitch; }
 		virtual void live_bend(int track, int semitones) { (void)track; (void)semitones; }
 		virtual int get_channel_volume(int track) { (void)track; return -1; }
+		virtual int get_last_pcm_channel() { return -1; }
 
 		unsigned int get_rate();
 

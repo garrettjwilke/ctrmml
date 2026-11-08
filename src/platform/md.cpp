@@ -52,6 +52,8 @@ MD_Channel::MD_Channel(MD_Driver& driver, int id)
 	set_var(Event::VOL_FINE, 15);
 	set_var(Event::PAN, 3);
 	set_coarse_volume_flag(true);
+	seq_vol = 15;
+	seq_coarse = true;
 }
 
 //! Update a channel
@@ -295,6 +297,8 @@ void MD_Channel::write_event()
 			driver->loop_trigger = true;
 			break;
 		case Event::NOTE:
+			set_var(Event::VOL_FINE, seq_vol);
+			set_coarse_volume_flag(seq_coarse);
 			note_pitch = ((int16_t) event.param + (int16_t) get_var(Event::TRANSPOSE))<<8;
 			note_pitch += get_var(Event::DETUNE);
 			key_on_flag = true;
@@ -734,6 +738,8 @@ void MD_MacroTrack::event_hook()
 			channel.set_var(Event::VOL_FINE, event.param);
 			channel.set_update_flag(Event::VOL_FINE);
 			channel.set_coarse_volume_flag(true);
+			channel.seq_vol = event.param;
+			channel.seq_coarse = true;
 			break;
 		// Previous behavior was to clear the VOL_BIT after VOL_FINE_REL
 		// and set it after VOL_REL. It has now been changed so VOL_REL
@@ -742,6 +748,7 @@ void MD_MacroTrack::event_hook()
 		case Event::VOL_FINE_REL:
 			channel.set_var(Event::VOL_FINE, channel.get_var(Event::VOL_FINE) + event.param);
 			channel.set_update_flag(Event::VOL_FINE);
+			channel.seq_vol = channel.get_var(Event::VOL_FINE);
 			break;
 		case Event::TEMPO_BPM: // not supported in MDSDRV
 		case Event::TEMPO: // not supported in MDSDRV
@@ -753,7 +760,11 @@ void MD_MacroTrack::event_hook()
 				channel.set_var(event.type, event.param);
 				channel.set_update_flag(event.type);
 				if(event.type == Event::VOL_FINE)
+				{
 					channel.set_coarse_volume_flag(false);
+					channel.seq_vol = event.param;
+					channel.seq_coarse = false;
+				}
 				if(event.type == Event::PAN)
 					channel.v_set_pan();
 			}
@@ -1639,15 +1650,12 @@ void MD_Channel::live_note_on(int p, int velocity)
 	update_pitch();
 	set_pitch();
 	int vel = (velocity > 0) ? (velocity > 127 ? 127 : velocity) : 100;
-	uint8_t orig_vol = get_var(Event::VOL_FINE);
-	bool orig_coarse = coarse_volume_flag();
-	set_coarse_volume_flag(false);
-	uint8_t vel_vol = (127 - vel) * 63 / 126;
-	if(vel_vol > 127) vel_vol = 127;
-	set_var(Event::VOL_FINE, vel_vol);
+	uint8_t c_vol = (vel * 15 + 63) / 127;
+	if(c_vol < 1) c_vol = 1;
+	if(c_vol > 15) c_vol = 15;
+	set_var(Event::VOL_FINE, c_vol);
+	set_coarse_volume_flag(true);
 	set_vol();
-	set_var(Event::VOL_FINE, orig_vol);
-	set_coarse_volume_flag(orig_coarse);
 	key_on();
 }
 
@@ -1702,5 +1710,17 @@ void MD_Driver::live_bend(int track, int semitones)
 			return;
 		}
 	}
+}
+
+int MD_Driver::get_channel_volume(int track)
+{
+	for(auto& ch : channels)
+	{
+		if(ch->channel_id == track)
+		{
+			return ch->get_var(Event::VOL_FINE);
+		}
+	}
+	return -1;
 }
 

@@ -82,6 +82,8 @@ class MD_Channel : public Player
 		// Macro track
 		std::unique_ptr<MD_MacroTrack> macro_track;
 		bool macro_carry;
+		uint8_t seq_vol;
+		bool seq_coarse;
 
 	private:
 		uint32_t parse_platform_event(const Tag& tag, int16_t* platform_state) override;
@@ -304,6 +306,7 @@ class MD_Driver : public Driver
 		void live_note_on(int track, int pitch, int velocity, int ins_id = 0) override;
 		void live_note_off(int track, int pitch) override;
 		void live_bend(int track, int semitones) override;
+		int get_channel_volume(int track) override;
 
 	private:
 		uint8_t bpm_to_delta(uint16_t bpm);

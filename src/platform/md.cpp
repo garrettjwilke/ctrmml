@@ -1699,7 +1699,7 @@ void MD_Channel::live_bend(int semitones)
 	set_pitch();
 }
 
-void MD_Driver::live_note_on(int track, int pitch, int velocity, int ins_id)
+void MD_Driver::live_note_on(int track, int pitch, int velocity, int ins_id, int pitch_env, int detune)
 {
 	for(auto& ch : channels)
 	{
@@ -1709,6 +1709,9 @@ void MD_Driver::live_note_on(int track, int pitch, int velocity, int ins_id)
 			{
 				ch->set_var(Event::INS, ins_id);
 			}
+			ch->set_var(Event::PITCH_ENVELOPE, pitch_env);
+			ch->set_update_flag(Event::PITCH_ENVELOPE);
+			ch->set_var(Event::DETUNE, detune);
 			ch->live_note_on(pitch, velocity);
 			return;
 		}

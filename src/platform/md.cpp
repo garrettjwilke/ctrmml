@@ -1742,6 +1742,69 @@ void MD_Driver::live_bend(int track, int semitones)
 	}
 }
 
+void MD_Driver::live_param(int track, int param, int val)
+{
+	for(auto& ch : channels)
+	{
+		if(ch->channel_id == track)
+		{
+			if(param == Event::VOL_FINE)
+			{
+				uint8_t c_vol = (val * 15 + 63) / 127;
+				ch->seq_vol = c_vol;
+				ch->seq_coarse = true;
+				ch->set_var(Event::VOL_FINE, c_vol);
+				ch->set_coarse_volume_flag(true);
+				ch->set_vol();
+			}
+			else if(param == Event::DETUNE)
+			{
+				ch->set_var(Event::DETUNE, val);
+				if(ch->get_last_note() > 0)
+				{
+					ch->note_pitch = ((int16_t)ch->get_last_note() + (int16_t)ch->get_var(Event::TRANSPOSE)) << 8;
+					ch->note_pitch += ch->get_var(Event::DETUNE);
+					ch->porta_value = ch->note_pitch;
+					ch->update_pitch();
+					ch->set_pitch();
+				}
+			}
+			else if(param == Event::PITCH_ENVELOPE)
+			{
+				if(val == 0)
+				{
+					ch->set_var(Event::PITCH_ENVELOPE, 0);
+					ch->pitch_env_data = nullptr;
+				}
+				else if(data.pitch_map.find(val) != data.pitch_map.end() &&
+				        data.pitch_map[val] != 0)
+				{
+					ch->set_var(Event::PITCH_ENVELOPE, val);
+					ch->set_update_flag(Event::PITCH_ENVELOPE);
+				}
+			}
+			else if(param == Event::PAN)
+			{
+				ch->set_var(Event::PAN, val);
+				ch->v_set_pan();
+			}
+			else if(param == Event::PLATFORM)
+			{
+				MD_FM* fm = dynamic_cast<MD_FM*>(ch.get());
+				if(fm)
+				{
+					int tl_val = 127 - val;
+					if(tl_val < 0) tl_val = 0;
+					if(tl_val > 127) tl_val = 127;
+					ch->tl[0] = (uint8_t)tl_val;
+					ch->set_vol();
+				}
+			}
+			return;
+		}
+	}
+}
+
 int MD_Driver::get_channel_volume(int track)
 {
 	for(auto& ch : channels)

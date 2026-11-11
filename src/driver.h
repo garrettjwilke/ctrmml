@@ -41,7 +41,7 @@ class Driver
 		//! Get the number of times the song has looped.
 		virtual int get_loop_count() = 0;
 
-		virtual void live_note_on(int track, int pitch, int velocity, int ins_id = 0, int pitch_env = 0, int detune = 0) { (void)track; (void)pitch; (void)velocity; (void)ins_id; (void)pitch_env; (void)detune; }
+		virtual void live_note_on(int track, int pitch, int velocity, int ins_id = 0, int pitch_env = 0, int detune = 0, int glide = 0) { (void)track; (void)pitch; (void)velocity; (void)ins_id; (void)pitch_env; (void)detune; (void)glide; }
 		virtual void live_note_off(int track, int pitch) { (void)track; (void)pitch; }
 		virtual void live_bend(int track, int semitones) { (void)track; (void)semitones; }
 		virtual void live_param(int track, int param, int val) { (void)track; (void)param; (void)val; }

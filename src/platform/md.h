@@ -303,7 +303,7 @@ class MD_Driver : public Driver
 		double play_step();
 		uint32_t get_player_ticks();
 
-		void live_note_on(int track, int pitch, int velocity, int ins_id = 0, int pitch_env = 0, int detune = 0) override;
+		void live_note_on(int track, int pitch, int velocity, int ins_id = 0, int pitch_env = 0, int detune = 0, int glide = 0) override;
 		void live_note_off(int track, int pitch) override;
 		void live_bend(int track, int semitones) override;
 		void live_param(int track, int param, int val) override;

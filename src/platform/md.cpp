@@ -1672,7 +1672,8 @@ void MD_Channel::live_note_on(int p, int velocity)
 	v_set_pan();
 	note_pitch = ((int16_t)p + (int16_t)get_var(Event::TRANSPOSE)) << 8;
 	note_pitch += get_var(Event::DETUNE);
-	porta_value = note_pitch;
+	if(get_var(Event::PORTAMENTO) == 0 || porta_value == 0)
+		porta_value = note_pitch;
 	key_on_flag = true;
 	update_pitch();
 	set_pitch();
@@ -1699,7 +1700,7 @@ void MD_Channel::live_bend(int semitones)
 	set_pitch();
 }
 
-void MD_Driver::live_note_on(int track, int pitch, int velocity, int ins_id, int pitch_env, int detune)
+void MD_Driver::live_note_on(int track, int pitch, int velocity, int ins_id, int pitch_env, int detune, int glide)
 {
 	for(auto& ch : channels)
 	{
@@ -1712,6 +1713,7 @@ void MD_Driver::live_note_on(int track, int pitch, int velocity, int ins_id, int
 			ch->set_var(Event::PITCH_ENVELOPE, pitch_env);
 			ch->set_update_flag(Event::PITCH_ENVELOPE);
 			ch->set_var(Event::DETUNE, detune);
+			ch->set_var(Event::PORTAMENTO, glide > 0 ? (glide > 255 ? 255 : glide) : 0);
 			ch->live_note_on(pitch, velocity);
 			return;
 		}
